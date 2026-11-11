@@ -165,6 +165,18 @@
         .header .btn.sm{padding:8px 9px}.btn-lbl{display:none}
       }
 
+    textarea{font:inherit;color:inherit;resize:vertical}
+      .lc{display:flex;align-items:center}.lc input{flex:1}.lb{flex:none;width:26px;text-align:center;font-weight:700;color:var(--blue)}.lb:hover{background:var(--blue-soft)}
+      .stat.clk{cursor:pointer;transition:border-color .15s,box-shadow .15s}.stat.clk:hover{border-color:#bacefa;box-shadow:0 0 0 1px #bacefa}
+      .dt{display:inline-flex;align-items:center;gap:6px}.dt input{border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:28px;font-size:12px;background:#fff}
+      #dCat{width:min(1100px,calc(100% - 36px))}.cat-list{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px}
+      .ct{table-layout:auto;width:100%;min-width:1000px}.ct td{padding:8px 10px;white-space:nowrap}
+      #dScr{width:min(600px,calc(100% - 36px))}#dScr .dialog-body{overflow:auto;max-height:calc(100dvh - 170px)}
+    .ld[popover]{border:0;padding:0;margin:0;overflow:visible;max-width:none;max-height:none;color:inherit}
+      .ld[popover]:not(.mini){width:100%;height:100%}
+      .ld.mini[popover]{border:1px solid var(--line);padding:10px 14px}
+      .toast-stack[popover]{background:none;border:0;padding:0;margin:0;overflow:visible;inset:auto 25px 25px auto;height:auto;pointer-events:none}
+      .toast-stack .toast{pointer-events:auto}
     </style>
   </head>
   <body>
@@ -201,6 +213,7 @@
       <header class="header">
         <div class="breadcrumb"><span data-icon="home"></span><span>Admin</span><span style="color:#d3dae5">/</span><strong>Proyeksi data</strong></div>
         <div class="header-actions">
+          <button class="btn sm" id="bScr"><span data-icon="phone"></span><span class="btn-lbl">Script WA</span></button>
           <button class="btn sm orange" id="bSave" disabled><span data-icon="shield"></span><span class="btn-lbl">Simpan ke sebaran PIC</span></button>
           <button class="btn sm" id="bXls"><span data-icon="download"></span><span class="btn-lbl">Unduh Excel</span></button>
           <button class="btn" id="bRef" title="Refresh data"><span data-icon="refresh"></span><span class="refresh-label">Refresh</span></button>
@@ -218,6 +231,8 @@
             <select class="fx" id="fsh"><option value="">Sumber sheet</option></select>
             <select class="fx" id="fp"><option value="">Semua PIC</option><option>AI</option><option>MT</option><option>SN</option><option value="-">Belum ada PIC</option></select>
             <select class="fx" id="fv"><option value="">Semua status</option><option value="x">PIC konflik ⚠</option><option value="h">Disembunyikan</option><option value="e">Sudah diedit</option></select>
+            <label class="fx dt">Berangkat <input type="date" id="fd1" /> – <input type="date" id="fd2" /></label>
+            <label class="fx dt">Pulang <input type="date" id="fb1" /> – <input type="date" id="fb2" /></label>
             <button class="btn sm" id="bRst">Batalkan edit</button>
             <button class="btn sm" id="bCols" title="Kembalikan urutan & lebar kolom ke bawaan">Atur ulang kolom</button>
           </div>
@@ -228,8 +243,17 @@
       </main>
     </div>
 
-    <div class="ld" id="ld" hidden role="status" aria-live="polite"><div class="ld-box"><div class="ld-ring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="42"/><circle class="fg" id="ldr" cx="50" cy="50" r="42"/></svg><b id="ldp">0%</b></div><span class="ld-txt" id="ldt">Memproses…</span></div></div>
-    <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    <div class="ld" id="ld" popover="manual" hidden role="status" aria-live="polite"><div class="ld-box"><div class="ld-ring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="42"/><circle class="fg" id="ldr" cx="50" cy="50" r="42"/></svg><b id="ldp">0%</b></div><span class="ld-txt" id="ldt">Memproses…</span></div></div>
+    <div class="toast-stack" id="toasts" popover="manual" aria-live="polite"></div>
+
+    <dialog id="dCat">
+      <div class="dialog-head"><div><h2 id="cTitle"></h2><p id="cSub"></p></div><div style="display:flex;gap:8px"><button class="btn sm primary" id="cXls"><span data-icon="download"></span>Ekspor Excel</button><button class="btn ghost sm" data-close aria-label="Tutup" data-icon="x"></button></div></div>
+      <div class="dialog-body"><input class="input" id="cQ" type="search" placeholder="Cari di daftar ini…" style="margin-bottom:12px" /><div class="cat-list" id="cList"></div></div>
+    </dialog>
+    <dialog id="dScr">
+      <div class="dialog-head"><div><h2>Script WhatsApp</h2><p>Teks otomatis di link WhatsApp tiap PIC. Pakai {nama} untuk nama lead.</p></div><button class="btn ghost sm" data-close aria-label="Tutup" data-icon="x"></button></div>
+      <div class="dialog-body" id="scrBody"></div>
+    </dialog>
 
     <dialog id="dConf">
       <div class="dialog-head"><div><h2>PIC konflik ⚠</h2><p><span id="cfN">0</span> lead terdeteksi konflik</p></div><button class="btn ghost sm" data-close aria-label="Tutup" data-icon="x"></button></div>
@@ -256,7 +280,7 @@
     <script>
       // ============ 2. KONFIGURASI & STATE ============
       const API = "https://script.google.com/macros/s/AKfycbxRZqExWOpgORiSjpL7rjUHOMspX_P9MBy1Sq_EgSa0DVgzHASkWHp89JK3nUjy_PDh/exec"; // <-- URL Web App yang sama dengan dashboard PIC
-      const S = { tk: localStorage.atk || "", rows: [], E: JSON.parse(localStorage.adm_draft || "{}"), page: 0, per: 100 };
+      const S = { tk: localStorage.atk || "", rows: [], E: JSON.parse(localStorage.adm_draft || "{}"), page: 0, per: 100, scripts: {}, cat: "", catL: [] };
 
       // ---------- 2.1 Utilitas umum ----------
       const $ = (s) => document.querySelector(s);
@@ -265,6 +289,26 @@
       const wa = (s) => { let d = String(s || "").replace(/\D/g, ""); if (d.startsWith("0")) d = "62" + d.slice(1); return d.length >= 9 && d.length <= 15 ? d : ""; };
       const fd = (s) => (s ? new Date(s + "T00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "");
       const ini = (n) => ((String(n).trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join("") || "?")).toUpperCase();
+      // ---------- 2.1b Link otomatis (sosmed, email, WhatsApp + script) ----------
+      const isUrl = (s) => /^(https?:\/\/|www\.)/i.test(s);
+      const un = (s) => clean(s).replace(/^@+/, "").replace(/^(https?:\/\/)?(www\.)?(instagram\.com|tiktok\.com)\//i, "").replace(/^@+/, "").replace(/[\/?#].*$/, "");
+      function waHref(num, name, script) {
+        const w = wa(num); if (!w) return "";
+        const t = String(script == null ? "Halo kak {nama}, " : script).replace(/\{nama\}/gi, name || "");
+        return "https://wa.me/" + w + (t ? "?text=" + encodeURIComponent(t) : "");
+      }
+      function linkOf(k, v, name, script) {
+        v = clean(v); if (!v) return "";
+        if (k === "w") return waHref(v, name, script);
+        if (k === "e") return /^\S+@\S+\.\S+$/.test(v) ? "mailto:" + v : "";
+        if (isUrl(v)) return /^https?:/i.test(v) ? v : "https://" + v;
+        if (k === "g") { const u = un(v); return /^[\w.]{1,30}$/.test(u) ? "https://www.instagram.com/" + u : ""; }
+        if (k === "t") { const u = un(v); return /^[\w.]{1,40}$/.test(u) ? "https://www.tiktok.com/@" + u : ""; }
+        if (k === "f") return "https://www.facebook.com/search/top?q=" + encodeURIComponent(v);
+        return "";
+      }
+      const aTag = (k, v, name, script, txt) => { const h = linkOf(k, v, name, script); return h ? `<a href="${esc(h)}" target="_blank" rel="noopener">${esc(txt ?? v)}</a>` : esc(txt ?? v); };
+      const lbtn = (r, k) => { if (!"wfgte".includes(k)) return ""; const h = linkOf(k, val(r, k), val(r, "n"), S.scripts[val(r, "p")]); return h ? `<a class="lb" href="${esc(h)}" target="_blank" rel="noopener" title="Buka di tab baru">↗</a>` : ""; };
       const PATHS = {
         layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/>',
         grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -288,17 +332,17 @@
       };
       const ic = (n, c = "") => `<svg class="icon ${c}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[n] || ""}</svg>`;
       function hydrateIcons() { document.querySelectorAll("[data-icon]").forEach((e) => { e.innerHTML = ic(e.dataset.icon); }); document.querySelectorAll("img.logo-img").forEach((i) => { i.src = LOGO; }); }
-      function toast(m, err) { const t = document.createElement("div"); t.className = "toast" + (err ? " error" : ""); t.textContent = m; $("#toasts").append(t); setTimeout(() => t.remove(), 3200); }
+      function toast(m, err) { const t = document.createElement("div"); t.className = "toast" + (err ? " error" : ""); t.textContent = m; $("#toasts").append(t); try { const s = $("#toasts"); if (s.matches(":popover-open")) s.hidePopover(); s.showPopover(); } catch (_) {} setTimeout(() => t.remove(), 3200); }
 
       // ---------- 2.2 Loading melingkar dengan persentase ----------
       // Persentase adalah estimasi: naik perlahan sampai 92% selama menunggu server, lalu 100% saat selesai.
       let ldN = 0, ldP = 0, ldT;
       function ldSet(p) { ldP = p; $("#ldp").textContent = Math.round(p) + "%"; $("#ldr").style.strokeDashoffset = 264 * (1 - p / 100); }
       function ldShow(txt, mini) {
-        ldN++; $("#ldt").textContent = txt || "Memproses…"; $("#ld").classList.toggle("mini", !!mini);
+        ldN++; $("#ldt").textContent = txt || "Memproses…"; try { const e = $("#ld"); if (e.matches(":popover-open")) e.hidePopover(); e.showPopover(); } catch (_) {} $("#ld").classList.toggle("mini", !!mini);
         if (ldN === 1) { ldSet(0); $("#ld").hidden = false; ldT = setInterval(() => ldSet(ldP + (92 - ldP) * 0.06), 200); }
       }
-      function ldHide() { if (--ldN > 0) return; clearInterval(ldT); ldSet(100); setTimeout(() => { if (ldN === 0) $("#ld").hidden = true; }, 280); }
+      function ldHide() { if (--ldN > 0) return; clearInterval(ldT); ldSet(100); setTimeout(() => { if (ldN === 0) { $("#ld").hidden = true; try { $("#ld").hidePopover(); } catch (_) {} } }, 280); }
       async function task(txt, fn) { ldShow(txt); await new Promise((r) => setTimeout(r, 80)); try { return await fn(); } finally { ldHide(); } }
       async function api(a, d = {}, txt, mini) {
         ldShow(txt || "Memproses…", mini);
@@ -335,7 +379,7 @@
         if (k === "s") return `<td class="c" title="${esc(r.s)}">${esc(r.s)}</td>`;
         if (k === "x") return `<td class="c">${r.x ? "⚠" : ""}</td>`;
         const ed = S.E[r.i] && k in S.E[r.i];
-        return `<td class="${ed ? "ed" : ""}">` + (k === "p" ? `<select data-i="${esc(r.i)}" data-f="p">${["", "AI", "MT", "SN"].map((o) => `<option value="${o}" ${val(r, "p") === o ? "selected" : ""}>${o || "(kosong)"}</option>`).join("")}</select>` : `<input type="text" data-i="${esc(r.i)}" data-f="${k}" value="${esc(val(r, k))}">`) + "</td>";
+        return `<td class="${ed ? "ed" : ""}">` + (k === "p" ? `<select data-i="${esc(r.i)}" data-f="p">${["", "AI", "MT", "SN"].map((o) => `<option value="${o}" ${val(r, "p") === o ? "selected" : ""}>${o || "(kosong)"}</option>`).join("")}</select>` : `<div class="lc"><input type="text" data-i="${esc(r.i)}" data-f="${k}" value="${esc(val(r, k))}">${lbtn(r, k)}</div>`) + "</td>";
       }
 
       // ---------- 6.2 Login ----------
@@ -352,18 +396,19 @@
         const r = await api("data", { force: force ? 1 : 0 }, force ? "Menyegarkan data…" : "Memuat seluruh data…");
         if (r.auth === false) { localStorage.removeItem("atk"); toast(r.err, true); return setTimeout(() => location.reload(), 900); }
         if (!r.ok) return toast(r.err, true);
-        S.rows = r.rows; S.page = 0;
+        S.rows = r.rows; S.page = 0; S.scripts = r.scripts || {};
         $("#fsh").innerHTML = '<option value="">Sumber sheet</option>' + [...new Set(r.rows.map((x) => x.s))].map((x) => `<option>${esc(x)}</option>`).join("");
         render(); if (force) toast("Data diperbarui");
       }
 
       // ---------- 6.4 Tabel proyeksi (bisa diedit, sumber asli tidak berubah) ----------
       function filtered() {
-        const q = $("#fq").value.trim().toLowerCase(), sh = $("#fsh").value, p = $("#fp").value, v = $("#fv").value;
+        const q = $("#fq").value.trim().toLowerCase(), sh = $("#fsh").value, p = $("#fp").value, v = $("#fv").value, D = [["d", $("#fd1").value, $("#fd2").value], ["b", $("#fb1").value, $("#fb2").value]];
         return S.rows.filter((r) => {
           if (sh && r.s !== sh) return false;
           const pic = val(r, "p"); if (p && (p === "-" ? pic : pic !== p)) return false;
           if (v === "x" && !r.x) return false; if (v === "h" && !val(r, "h")) return false; if (v === "e" && !S.E[r.i]) return false;
+          for (const [f, x1, x2] of D) { const x = val(r, f); if ((x1 || x2) && (!x || (x1 && x < x1) || (x2 && x > x2))) return false; }
           return !q || COLS.map((c) => val(r, c[0])).join(" ").toLowerCase().includes(q);
         });
       }
@@ -376,8 +421,8 @@
         applyCols();
         $("#pInfo").textContent = `Hal ${S.page + 1}/${pages} • ${L.length.toLocaleString("id")} baris`;
         const c = { AI: 0, MT: 0, SN: 0, "": 0 }; S.rows.forEach((r) => { if (!val(r, "h")) c[val(r, "p") || ""]++; });
-        const card = (k, l, v) => `<div class="stat ${k}"><span>${l}</span><strong>${v.toLocaleString("id")}</strong></div>`;
-        $("#stats").innerHTML = card("AI", "Leads AI", c.AI) + card("MT", "Leads MT", c.MT) + card("SN", "Leads SN", c.SN) + card("", "Belum ada PIC", c[""]) + `<div class="stat w"><span>PIC konflik</span><strong>${S.rows.filter((r) => r.x).length.toLocaleString("id")}</strong><button class="info-btn" id="bConf" type="button" aria-label="Apa itu PIC konflik?" title="Apa itu PIC konflik?">i</button></div>`;
+        const card = (k, l, v, g) => `<div class="stat ${k} clk" data-cat="${g}" role="button" tabindex="0"><span>${l}</span><strong>${v.toLocaleString("id")}</strong></div>`;
+        $("#stats").innerHTML = card("AI", "Leads AI", c.AI, "AI") + card("MT", "Leads MT", c.MT, "MT") + card("SN", "Leads SN", c.SN, "SN") + card("", "Belum ada PIC", c[""], "-") + `<div class="stat w clk" data-cat="x" role="button" tabindex="0"><span>PIC konflik</span><strong>${S.rows.filter((r) => r.x).length.toLocaleString("id")}</strong><button class="info-btn" id="bConf" type="button" aria-label="Apa itu PIC konflik?" title="Apa itu PIC konflik?">i</button></div>`;
       }
       function onEdit(e) { // hanya catat yang berbeda dari data server
         const t = e.target, i = t.dataset.i, f = t.dataset.f; if (!i) return;
@@ -399,6 +444,27 @@
         $("#dConf").showModal();
       }
 
+      // ---------- 6.4c Popup daftar per kategori + ekspor ----------
+      const CAT = { AI: "Leads AI", MT: "Leads MT", SN: "Leads SN", "-": "Belum ada PIC", x: "PIC konflik ⚠" };
+      const catRows = (c) => S.rows.filter((r) => (c === "x" ? r.x : !val(r, "h") && (val(r, "p") || "-") === c));
+      function openCat(c) { S.cat = c; $("#cQ").value = ""; drawCat(); $("#dCat").showModal(); }
+      function drawCat() {
+        const q = $("#cQ").value.trim().toLowerCase(), all = catRows(S.cat), MAX = 300;
+        const L = q ? all.filter((r) => COLS.map((x) => val(r, x[0])).join(" ").toLowerCase().includes(q)) : all; S.catL = L;
+        $("#cTitle").textContent = CAT[S.cat]; $("#cSub").textContent = L.length.toLocaleString("id") + " data" + (L.length > MAX ? ` · tampil ${MAX} pertama, ekspor memuat semuanya` : "");
+        const H = ["Nama", "WhatsApp", "Instagram", "TikTok", "Facebook", "Email", "LPK", "Berangkat", "Pulang", "PIC", "Sumber"], lk = (r, k) => aTag(k, val(r, k), val(r, "n"), S.scripts[val(r, "p")]);
+        $("#cList").innerHTML = L.length ? `<table class="ct"><thead><tr>${H.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>` + L.slice(0, MAX).map((r) => `<tr><td><b>${esc(r.n)}</b>${r.x ? " ⚠" : ""}</td><td>${lk(r, "w")}</td><td>${lk(r, "g")}</td><td>${lk(r, "t")}</td><td>${lk(r, "f")}</td><td>${lk(r, "e")}</td><td>${esc(val(r, "l"))}</td><td>${fd(val(r, "d"))}</td><td>${fd(val(r, "b"))}</td><td>${esc(val(r, "p") || "-")}</td><td>${esc(r.s)}</td></tr>`).join("") + "</tbody></table>" : '<div class="cf-item help">Tidak ada data.</div>';
+      }
+      const catXls = () => task("Menyiapkan file Excel…", () => {
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[...COLS.map((c) => c[1]), "Sumber"], ...S.catL.map((r) => [...COLS.map(([f]) => val(r, f)), r.s])]), "Data");
+        XLSX.writeFile(wb, "leads-" + ({ AI: "AI", MT: "MT", SN: "SN", "-": "belum-ada-PIC", x: "PIC-konflik" })[S.cat] + ".xlsx");
+      });
+      // ---------- 6.4d Popup script WhatsApp (admin bisa ganti script semua PIC) ----------
+      function openScr() {
+        $("#scrBody").innerHTML = Object.keys(S.scripts).map((p) => `<div class="field"><label><span class="pill ${p}">PIC ${p}</span> script yang sedang dipakai</label><textarea class="input" rows="3" maxlength="1000" data-p="${p}">${esc(S.scripts[p])}</textarea><div><button class="btn sm primary" data-sp="${p}">Simpan script ${p}</button> <span class="help">Kosongkan lalu simpan = kembali ke bawaan</span></div></div>`).join("") || '<p class="help">Belum ada akun PIC.</p>';
+        $("#dScr").showModal();
+      }
+
       // ---------- 6.5 Simpan, unduh, reset ----------
       async function save() {
         const edits = []; for (const i in S.E) for (const f in S.E[i]) edits.push({ i, f, v: S.E[i][f] });
@@ -407,8 +473,8 @@
         S.E = {}; saveDraft(); toast("Tersimpan. PIC akan menerima data terbaru."); load(true);
       }
       const dl = () => task("Menyiapkan file Excel…", () => {
-        const rows = S.rows.map((r) => [...COLS.map(([f]) => val(r, f)), r.s, val(r, "h") ? "DISEMBUNYIKAN" : ""]);
-        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[...COLS.map((c) => c[1]), "Sumber", "Status"], ...rows]), "Proyeksi"); XLSX.writeFile(wb, "proyeksi-leads.xlsx");
+        const rows = filtered().map((r) => [...COLS.map(([f]) => val(r, f)), r.s, val(r, "h") ? "DISEMBUNYIKAN" : ""]);
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[...COLS.map((c) => c[1]), "Sumber", "Status"], ...rows]), "Proyeksi"); XLSX.writeFile(wb, "proyeksi-leads" + ([$("#fd1").value, $("#fd2").value, $("#fb1").value, $("#fb2").value].some(Boolean) ? "-filter-tanggal" : "") + ".xlsx");
       });
 
       // ---------- 6.6 Event & inisialisasi ----------
@@ -418,7 +484,7 @@
         $("#loginForm").onsubmit = doLogin; $("#bRef").onclick = () => load(true); $("#bSave").onclick = save; $("#bXls").onclick = dl;
         $("#bOut").onclick = () => { localStorage.removeItem("atk"); location.reload(); };
         $("#bRst").onclick = () => { if (confirm("Batalkan semua edit yang belum disimpan?")) { S.E = {}; saveDraft(); render(); } };
-        ["fsh", "fp", "fv"].forEach((id) => ($("#" + id).onchange = () => { S.page = 0; render(); }));
+        ["fsh", "fp", "fv", "fd1", "fd2", "fb1", "fb2"].forEach((id) => ($("#" + id).onchange = () => { S.page = 0; render(); }));
         $("#fq").oninput = () => { S.page = 0; render(); }; $("#tb").onchange = onEdit;
         $("#pPrev").onclick = () => { S.page = Math.max(0, S.page - 1); render(); }; $("#pNext").onclick = () => { S.page++; render(); };
         // --- scroll atas <-> bawah tabel ---
@@ -448,7 +514,14 @@
         });
         $("#th").addEventListener("dragend", () => { dragK = null; clearOver(); });
         $("#bCols").onclick = () => { S.W = { ...DW }; S.O = DEF_ORD.slice(); saveCols(); render(); };
-        $("#stats").onclick = (e) => { if (e.target.closest("#bConf")) openConf(); };
+        $("#stats").onclick = (e) => { if (e.target.closest("#bConf")) return openConf(); const c = e.target.closest("[data-cat]"); if (c) openCat(c.dataset.cat); };
+        $("#stats").onkeydown = (e) => { const c = e.target.closest("[data-cat]"); if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openCat(c.dataset.cat); } };
+        $("#cQ").oninput = drawCat; $("#cXls").onclick = catXls; $("#bScr").onclick = openScr;
+        $("#scrBody").onclick = async (e) => {
+          const b = e.target.closest("[data-sp]"); if (!b) return; const p = b.dataset.sp, ta = $(`#scrBody textarea[data-p="${p}"]`);
+          const r = await api("script", { pic: p, script: ta.value }, "Menyimpan script…"); if (!r.ok) return toast(r.err, true);
+          S.scripts[p] = r.script; ta.value = r.script; toast("Script " + p + " tersimpan"); render();
+        };
         document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => b.closest("dialog").close()));
         $("#cfShow").onclick = () => { $("#fv").value = "x"; S.page = 0; render(); $("#dConf").close(); };
         if (S.tk) enter();
