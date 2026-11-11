@@ -138,10 +138,22 @@
       .searchbox input{border:1px solid var(--line);border-radius:8px;background:#fafbfd;padding:10px 10px 10px 36px;width:100%;min-height:40px;font-size:13px}
       .fx{border:1px solid var(--line);border-radius:8px;min-height:40px;background:#fff;color:#5d6f89;padding:8px 11px;font-size:12px}
       .tw{overflow:auto;max-height:calc(100vh - 330px)}
-      table{border-collapse:collapse;min-width:1500px;width:100%;font-size:12px}
-      th{position:sticky;top:0;background:#fafbfd;color:#8f9bb0;text-align:left;padding:12px 8px;font-size:11px;font-weight:600;border-bottom:1px solid var(--line);z-index:2;white-space:nowrap}
-      td{border-bottom:1px solid #f0f2f6;padding:0}
-      td input[type=text],td select{width:100%;min-width:100px;border:0;padding:10px 8px;background:transparent;outline:0}
+      /* scroll kiri-kanan di atas tabel (disinkronkan dengan scroll bawah) */
+      .tscroll{overflow-x:auto;overflow-y:hidden;border-bottom:1px solid var(--line)}.tscroll>div{height:1px}
+      .tw::-webkit-scrollbar,.tscroll::-webkit-scrollbar{height:12px;width:12px}
+      .tw::-webkit-scrollbar-thumb,.tscroll::-webkit-scrollbar-thumb{background:#c5cfdf;border-radius:8px;border:2px solid #fff}
+      .tw::-webkit-scrollbar-track,.tscroll::-webkit-scrollbar-track{background:#f3f5f9}
+      @supports (-moz-appearance:none){.tw,.tscroll{scrollbar-color:#c5cfdf #f3f5f9}}
+      /* geser & ubah lebar kolom */
+      th .tt{display:block;overflow:hidden;text-overflow:ellipsis;cursor:grab}
+      th .rz{position:absolute;top:0;right:0;bottom:0;width:10px;cursor:col-resize;touch-action:none}
+      th .rz::after{content:"";position:absolute;right:4px;top:25%;bottom:25%;width:2px;background:#dde3ee;border-radius:2px}
+      th .rz:hover::after,th .rz.on::after{background:var(--blue)}
+      th.over{background:#e6efff;box-shadow:inset 3px 0 0 var(--blue)}
+      table{border-collapse:collapse;table-layout:fixed;width:2000px;font-size:12px}
+      th{position:sticky;top:0;background:#fafbfd;color:#8f9bb0;text-align:left;padding:12px 12px 12px 8px;font-size:11px;font-weight:600;border-bottom:1px solid var(--line);z-index:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      td{border-bottom:1px solid #f0f2f6;padding:0;overflow:hidden}
+      td input[type=text],td select{width:100%;min-width:0;border:0;padding:10px 8px;background:transparent;outline:0}
       td input:focus,td select:focus{background:var(--blue-soft)}
       td.ed{background:var(--orange-soft)}td.c{text-align:center;padding:0 8px}
       tr.hid td{opacity:.45}
@@ -207,8 +219,10 @@
             <select class="fx" id="fp"><option value="">Semua PIC</option><option>AI</option><option>MT</option><option>SN</option><option value="-">Belum ada PIC</option></select>
             <select class="fx" id="fv"><option value="">Semua status</option><option value="x">PIC konflik ⚠</option><option value="h">Disembunyikan</option><option value="e">Sudah diedit</option></select>
             <button class="btn sm" id="bRst">Batalkan edit</button>
+            <button class="btn sm" id="bCols" title="Kembalikan urutan & lebar kolom ke bawaan">Atur ulang kolom</button>
           </div>
-          <div class="tw"><table><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+          <div class="tscroll" id="ts" aria-hidden="true"><div id="tsIn"></div></div>
+          <div class="tw"><table><colgroup id="cg"></colgroup><thead id="th"></thead><tbody id="tb"></tbody></table></div>
           <div class="pg"><button class="btn sm" id="pPrev">‹ Sebelumnya</button><span id="pInfo"></span><button class="btn sm" id="pNext">Berikutnya ›</button></div>
         </section>
       </main>
@@ -300,6 +314,30 @@
       const nEdits = () => Object.values(S.E).reduce((a, o) => a + Object.keys(o).length, 0);
       function saveDraft() { localStorage.adm_draft = JSON.stringify(S.E); const n = nEdits(); $("#bSave").disabled = !n; $("#bSave").lastChild.textContent = n ? `Simpan ${n} edit ke sebaran PIC` : "Simpan ke sebaran PIC"; }
 
+      // ---------- 6.1b Kolom: urutan & lebar (diatur admin, tersimpan di perangkat) ----------
+      const TT = { h: "Sembunyi", ...Object.fromEntries(COLS), s: "Sumber", x: "⚠" };
+      const DW = { h: 80, n: 200, w: 140, f: 140, g: 140, t: 130, e: 190, d: 170, b: 170, l: 150, k: 160, c: 90, p: 110, s: 170, x: 50 };
+      const DEF_ORD = ["h", ...COLS.map((c) => c[0]), "s", "x"];
+      const readJ = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
+      const fixW = (o) => { const w = { ...DW }; for (const k in w) if (typeof o[k] === "number" && o[k] >= 50 && o[k] <= 900) w[k] = o[k]; return w; };
+      const savedO = readJ("adm_co", null);
+      S.W = fixW(readJ("adm_cw", {}));
+      S.O = Array.isArray(savedO) && savedO.length === DEF_ORD.length && DEF_ORD.every((k) => savedO.includes(k)) ? savedO : DEF_ORD.slice();
+      function saveCols() { try { localStorage.setItem("adm_cw", JSON.stringify(S.W)); localStorage.setItem("adm_co", JSON.stringify(S.O)); } catch (e) {} }
+      function syncTop() { $("#tsIn").style.width = $(".tw").scrollWidth + "px"; }
+      function applyCols() {
+        let tot = 0;
+        document.querySelectorAll("#cg col").forEach((c) => { const w = S.W[c.dataset.k]; c.style.width = w + "px"; tot += w; });
+        $("table").style.width = tot + "px"; syncTop();
+      }
+      function cell(r, k) {
+        if (k === "h") return `<td class="c"><input type="checkbox" data-i="${esc(r.i)}" data-f="h" ${val(r, "h") ? "checked" : ""}></td>`;
+        if (k === "s") return `<td class="c" title="${esc(r.s)}">${esc(r.s)}</td>`;
+        if (k === "x") return `<td class="c">${r.x ? "⚠" : ""}</td>`;
+        const ed = S.E[r.i] && k in S.E[r.i];
+        return `<td class="${ed ? "ed" : ""}">` + (k === "p" ? `<select data-i="${esc(r.i)}" data-f="p">${["", "AI", "MT", "SN"].map((o) => `<option value="${o}" ${val(r, "p") === o ? "selected" : ""}>${o || "(kosong)"}</option>`).join("")}</select>` : `<input type="text" data-i="${esc(r.i)}" data-f="${k}" value="${esc(val(r, k))}">`) + "</td>";
+      }
+
       // ---------- 6.2 Login ----------
       async function doLogin(e) {
         e.preventDefault(); $("#loginErr").hidden = true;
@@ -331,12 +369,11 @@
       }
       function render() {
         const L = filtered(), pages = Math.max(1, Math.ceil(L.length / S.per)); S.page = Math.min(S.page, pages - 1);
-        $("#th").innerHTML = "<tr><th>Sembunyi</th>" + COLS.map((c) => `<th>${c[1]}</th>`).join("") + "<th>Sumber</th><th>⚠</th></tr>";
-        $("#tb").innerHTML = L.slice(S.page * S.per, (S.page + 1) * S.per).map((r) =>
-          `<tr class="${val(r, "h") ? "hid" : ""}"><td class="c"><input type="checkbox" data-i="${esc(r.i)}" data-f="h" ${val(r, "h") ? "checked" : ""}></td>` +
-          COLS.map(([f]) => { const ed = S.E[r.i] && f in S.E[r.i];
-            return `<td class="${ed ? "ed" : ""}">` + (f === "p" ? `<select data-i="${esc(r.i)}" data-f="p">${["", "AI", "MT", "SN"].map((o) => `<option value="${o}" ${val(r, "p") === o ? "selected" : ""}>${o || "(kosong)"}</option>`).join("")}</select>` : `<input type="text" data-i="${esc(r.i)}" data-f="${f}" value="${esc(val(r, f))}">`) + "</td>"; }).join("") +
-          `<td class="c">${esc(r.s)}</td><td class="c">${r.x ? "⚠" : ""}</td></tr>`).join("");
+        const O = S.O;
+        $("#cg").innerHTML = O.map((k) => `<col data-k="${k}">`).join("");
+        $("#th").innerHTML = "<tr>" + O.map((k) => `<th data-k="${k}" title="${esc(TT[k])}"><span class="tt" draggable="true">${esc(TT[k])}</span><i class="rz" title="Geser untuk ubah lebar, klik dua kali untuk reset"></i></th>`).join("") + "</tr>";
+        $("#tb").innerHTML = L.slice(S.page * S.per, (S.page + 1) * S.per).map((r) => `<tr class="${val(r, "h") ? "hid" : ""}">` + O.map((k) => cell(r, k)).join("") + "</tr>").join("");
+        applyCols();
         $("#pInfo").textContent = `Hal ${S.page + 1}/${pages} • ${L.length.toLocaleString("id")} baris`;
         const c = { AI: 0, MT: 0, SN: 0, "": 0 }; S.rows.forEach((r) => { if (!val(r, "h")) c[val(r, "p") || ""]++; });
         const card = (k, l, v) => `<div class="stat ${k}"><span>${l}</span><strong>${v.toLocaleString("id")}</strong></div>`;
@@ -384,6 +421,33 @@
         ["fsh", "fp", "fv"].forEach((id) => ($("#" + id).onchange = () => { S.page = 0; render(); }));
         $("#fq").oninput = () => { S.page = 0; render(); }; $("#tb").onchange = onEdit;
         $("#pPrev").onclick = () => { S.page = Math.max(0, S.page - 1); render(); }; $("#pNext").onclick = () => { S.page++; render(); };
+        // --- scroll atas <-> bawah tabel ---
+        const tw = $(".tw"), ts = $("#ts");
+        tw.addEventListener("scroll", () => { if (ts.scrollLeft !== tw.scrollLeft) ts.scrollLeft = tw.scrollLeft; });
+        ts.addEventListener("scroll", () => { if (tw.scrollLeft !== ts.scrollLeft) tw.scrollLeft = ts.scrollLeft; });
+        window.addEventListener("resize", syncTop);
+        // --- ubah lebar kolom (tarik tepi kanan header; klik dua kali = reset) ---
+        $("#th").addEventListener("pointerdown", (e) => {
+          const h = e.target.closest(".rz"); if (!h) return;
+          e.preventDefault(); const k = h.closest("th").dataset.k, x0 = e.clientX, w0 = S.W[k];
+          h.setPointerCapture(e.pointerId); h.classList.add("on");
+          const mv = (ev) => { S.W[k] = Math.max(50, Math.min(900, Math.round(w0 + ev.clientX - x0))); applyCols(); };
+          const up = () => { h.removeEventListener("pointermove", mv); h.removeEventListener("pointerup", up); h.removeEventListener("pointercancel", up); h.classList.remove("on"); saveCols(); };
+          h.addEventListener("pointermove", mv); h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+        });
+        $("#th").addEventListener("dblclick", (e) => { const h = e.target.closest(".rz"); if (!h) return; const k = h.closest("th").dataset.k; S.W[k] = DW[k]; saveCols(); applyCols(); });
+        // --- geser urutan kolom (tarik judul kolom ke kolom tujuan) ---
+        let dragK = null; const clearOver = () => document.querySelectorAll("#th th.over").forEach((x) => x.classList.remove("over"));
+        $("#th").addEventListener("dragstart", (e) => { const t = e.target.closest(".tt"); if (!t) return; dragK = t.closest("th").dataset.k; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragK); });
+        $("#th").addEventListener("dragover", (e) => { if (!dragK) return; const th = e.target.closest("th"); if (!th) return; e.preventDefault(); clearOver(); if (th.dataset.k !== dragK) th.classList.add("over"); });
+        $("#th").addEventListener("drop", (e) => {
+          if (!dragK) return; e.preventDefault(); const th = e.target.closest("th"), to = th && th.dataset.k, from = dragK; dragK = null; clearOver();
+          if (!to || to === from) return;
+          const iF = S.O.indexOf(from), iT = S.O.indexOf(to), o = S.O.filter((k) => k !== from);
+          o.splice(o.indexOf(to) + (iF < iT ? 1 : 0), 0, from); S.O = o; saveCols(); render();
+        });
+        $("#th").addEventListener("dragend", () => { dragK = null; clearOver(); });
+        $("#bCols").onclick = () => { S.W = { ...DW }; S.O = DEF_ORD.slice(); saveCols(); render(); };
         $("#stats").onclick = (e) => { if (e.target.closest("#bConf")) openConf(); };
         document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => b.closest("dialog").close()));
         $("#cfShow").onclick = () => { $("#fv").value = "x"; S.page = 0; render(); $("#dConf").close(); };
