@@ -166,7 +166,7 @@
       }
 
     textarea{font:inherit;color:inherit;resize:vertical}
-      .lc{display:flex;align-items:center}.lc input{flex:1}.lb{flex:none;width:26px;text-align:center;font-weight:700;color:var(--blue)}.lb:hover{background:var(--blue-soft)}
+      .lc{display:flex;align-items:center}.lc input{flex:1}.lb{flex:none;width:30px;height:32px;display:flex;align-items:center;justify-content:center}.lb svg{width:17px;height:17px;display:block}.lb:hover{background:var(--blue-soft)}
       .stat.clk{cursor:pointer;transition:border-color .15s,box-shadow .15s}.stat.clk:hover{border-color:#bacefa;box-shadow:0 0 0 1px #bacefa}
       .dt{display:inline-flex;align-items:center;gap:6px}.dt input{border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:28px;font-size:12px;background:#fff}
       #dCat{width:min(1100px,calc(100% - 36px))}.cat-list{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px}
@@ -177,6 +177,7 @@
       .ld.mini[popover]{border:1px solid var(--line);padding:10px 14px}
       .toast-stack[popover]{background:none;border:0;padding:0;margin:0;overflow:visible;inset:auto 25px 25px auto;height:auto;pointer-events:none}
       .toast-stack .toast{pointer-events:auto}
+    .bi{display:inline-flex;vertical-align:-3px;margin-right:5px}.bi svg{width:15px;height:15px}
     </style>
   </head>
   <body>
@@ -307,8 +308,16 @@
         if (k === "f") return "https://www.facebook.com/search/top?q=" + encodeURIComponent(v);
         return "";
       }
-      const aTag = (k, v, name, script, txt) => { const h = linkOf(k, v, name, script); return h ? `<a href="${esc(h)}" target="_blank" rel="noopener">${esc(txt ?? v)}</a>` : esc(txt ?? v); };
-      const lbtn = (r, k) => { if (!"wfgte".includes(k)) return ""; const h = linkOf(k, val(r, k), val(r, "n"), S.scripts[val(r, "p")]); return h ? `<a class="lb" href="${esc(h)}" target="_blank" rel="noopener" title="Buka di tab baru">↗</a>` : ""; };
+      const aTag = (k, v, name, script, txt) => { const h = linkOf(k, v, name, script), b = BR[k]; return h ? `<a href="${esc(h)}" target="_blank" rel="noopener"${b ? ` title="${b[0]}"` : ""}>${b ? `<span class="bi">${b[1]}</span>` : ""}${esc(txt ?? v)}</a>` : esc(txt ?? v); };
+      const SV = (b, f) => `<svg viewBox="0 0 24 24" fill="${f || "none"}" stroke="${f ? "none" : b}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`;
+      const BR = {
+        w: ["Buka WhatsApp (dengan script)", SV("#25D366") + '<path d="M12 3a9 9 0 0 0-7.7 13.6L3 21l4.5-1.2A9 9 0 1 0 12 3z"/><path d="M9 8.5c-.3.6-.3 1.5.4 2.8 1 1.8 2.3 2.9 3.8 3.4.9.3 1.6 0 2-.6l-1.8-.9-.7.7c-1-.4-1.9-1.3-2.4-2.3l.6-.6-.8-1.8z" fill="#25D366" stroke="none"/></svg>'],
+        g: ["Buka Instagram", SV("#E1306C") + '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="#E1306C" stroke="none"/></svg>'],
+        t: ["Buka TikTok", SV("", "#111") + '<path d="M16.6 3c.3 2.3 1.7 3.8 4 4v3.2c-1.5 0-2.9-.4-4-1.2v6.3a5.7 5.7 0 1 1-5.7-5.7c.3 0 .6 0 .9.1v3.3a2.5 2.5 0 1 0 1.6 2.3V3h3.2z"/></svg>'],
+        f: ["Buka Facebook", SV("", "#1877F2") + '<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v2H7v4h3v8h4v-8h3l1-4h-4V8z"/></svg>'],
+        e: ["Kirim email", SV("#5d6f89") + '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>'],
+      };
+      const lbtn = (r, k) => { if (!"wfgte".includes(k)) return ""; const h = linkOf(k, val(r, k), val(r, "n"), S.scripts[val(r, "p")]); return h ? `<a class="lb" href="${esc(h)}" target="_blank" rel="noopener" title="${BR[k][0]}">${BR[k][1]}</a>` : ""; };
       const PATHS = {
         layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/>',
         grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -431,14 +440,22 @@
         if (!Object.keys(S.E[i]).length) delete S.E[i]; saveDraft(); render();
       }
 
+      // ---------- 6.4a Alasan konflik per nama ----------
+      function whyConf(r) {
+        const h = (Array.isArray(r.v) ? r.v : []).map((t) => String(t).match(/^(.+?) \((.*)\)$/)).filter(Boolean).map((m) => ({ p: m[1], s: m[2] })), by = {};
+        h.forEach((x) => (by[x.p] = by[x.p] || []).push(x.s));
+        const ps = Object.keys(by); if (ps.length < 2) return "Terdeteksi konflik, tetapi rincian sheet belum tersedia. Klik Refresh data lalu buka lagi.";
+        const key = wa(r.w) ? "nomor WhatsApp" : "nama lengkap (nomor WA kosong)", ed = S.E[r.i] && "p" in S.E[r.i];
+        return `Orang yang sama (dikenali dari ${key}) tercatat dengan PIC berbeda: ` + ps.map((p) => `${p} di sheet ${by[p].map((s) => "“" + s + "”").join(", ")}`).join("; ") + `. Sistem memakai ${h[0].p} karena berasal dari sheet terbaru “${h[0].s}”.` + (ed ? ` Admin sudah mengubah PIC menjadi ${val(r, "p") || "(kosong)"}.` : "");
+      }
       // ---------- 6.4b Popup informasi PIC konflik ----------
       function openConf() {
         const L = S.rows.filter((r) => r.x), MAX = 200;
         $("#cfN").textContent = L.length.toLocaleString("id");
         $("#cfList").innerHTML = L.length
           ? L.slice(0, MAX).map((r) => { const p = val(r, "p"), ed = S.E[r.i] && "p" in S.E[r.i];
-              const hist = Array.isArray(r.v) ? (r.v.length ? "Tercatat di sheet (terbaru dulu): " + esc(r.v.join(" | ")) : "") : "Riwayat PIC belum tersedia.";
-              return `<div class="cf-item"><div class="cf-top"><strong>${esc(r.n)}</strong><span class="pill ${p || "none"}">PIC aktif: ${p || "(kosong)"}</span>${ed ? '<span class="pill orange">diedit</span>' : ""}</div><div class="help">${r.w ? esc(r.w) + " · " : ""}${hist}</div></div>`; }).join("")
+              const hist = "<b>Kenapa konflik:</b> " + esc(whyConf(r));
+              return `<div class="cf-item"><div class="cf-top"><strong>${esc(r.n)}</strong><span class="pill ${p || "none"}">PIC aktif: ${p || "(kosong)"}</span>${ed ? '<span class="pill orange">diedit</span>' : ""}</div><div class="help">${r.w ? esc(r.w) + "<br>" : ""}${hist}</div></div>`; }).join("")
             + (L.length > MAX ? `<div class="cf-item help">Menampilkan ${MAX} dari ${L.length.toLocaleString("id")}. Klik “Tampilkan di tabel” untuk melihat semuanya.</div>` : "")
           : '<div class="cf-item help">Tidak ada PIC konflik.</div>';
         $("#dConf").showModal();
@@ -449,14 +466,14 @@
       const catRows = (c) => S.rows.filter((r) => (c === "x" ? r.x : !val(r, "h") && (val(r, "p") || "-") === c));
       function openCat(c) { S.cat = c; $("#cQ").value = ""; drawCat(); $("#dCat").showModal(); }
       function drawCat() {
-        const q = $("#cQ").value.trim().toLowerCase(), all = catRows(S.cat), MAX = 300;
+        const q = $("#cQ").value.trim().toLowerCase(), all = catRows(S.cat), MAX = 1000;
         const L = q ? all.filter((r) => COLS.map((x) => val(r, x[0])).join(" ").toLowerCase().includes(q)) : all; S.catL = L;
         $("#cTitle").textContent = CAT[S.cat]; $("#cSub").textContent = L.length.toLocaleString("id") + " data" + (L.length > MAX ? ` · tampil ${MAX} pertama, ekspor memuat semuanya` : "");
-        const H = ["Nama", "WhatsApp", "Instagram", "TikTok", "Facebook", "Email", "LPK", "Berangkat", "Pulang", "PIC", "Sumber"], lk = (r, k) => aTag(k, val(r, k), val(r, "n"), S.scripts[val(r, "p")]);
-        $("#cList").innerHTML = L.length ? `<table class="ct"><thead><tr>${H.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>` + L.slice(0, MAX).map((r) => `<tr><td><b>${esc(r.n)}</b>${r.x ? " ⚠" : ""}</td><td>${lk(r, "w")}</td><td>${lk(r, "g")}</td><td>${lk(r, "t")}</td><td>${lk(r, "f")}</td><td>${lk(r, "e")}</td><td>${esc(val(r, "l"))}</td><td>${fd(val(r, "d"))}</td><td>${fd(val(r, "b"))}</td><td>${esc(val(r, "p") || "-")}</td><td>${esc(r.s)}</td></tr>`).join("") + "</tbody></table>" : '<div class="cf-item help">Tidak ada data.</div>';
+        const H = ["Nama", "WhatsApp", "Instagram", "TikTok", "Facebook", "Email", "LPK", "Berangkat", "Pulang", "PIC", "Sumber", ...(S.cat === "x" ? ["Keterangan konflik"] : [])], lk = (r, k) => aTag(k, val(r, k), val(r, "n"), S.scripts[val(r, "p")]);
+        $("#cList").innerHTML = L.length ? `<table class="ct"><thead><tr>${H.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>` + L.slice(0, MAX).map((r) => `<tr><td><b>${esc(r.n)}</b>${r.x ? " ⚠" : ""}</td><td>${lk(r, "w")}</td><td>${lk(r, "g")}</td><td>${lk(r, "t")}</td><td>${lk(r, "f")}</td><td>${lk(r, "e")}</td><td>${esc(val(r, "l"))}</td><td>${fd(val(r, "d"))}</td><td>${fd(val(r, "b"))}</td><td>${esc(val(r, "p") || "-")}</td><td>${esc(r.s)}</td>${S.cat === "x" ? `<td style="white-space:normal;min-width:360px;line-height:1.5">${esc(whyConf(r))}</td>` : ""}</tr>`).join("") + "</tbody></table>" : '<div class="cf-item help">Tidak ada data.</div>';
       }
       const catXls = () => task("Menyiapkan file Excel…", () => {
-        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[...COLS.map((c) => c[1]), "Sumber"], ...S.catL.map((r) => [...COLS.map(([f]) => val(r, f)), r.s])]), "Data");
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[...COLS.map((c) => c[1]), "Sumber", ...(S.cat === "x" ? ["Keterangan konflik"] : [])], ...S.catL.map((r) => [...COLS.map(([f]) => val(r, f)), r.s, ...(S.cat === "x" ? [whyConf(r)] : [])])]), "Data");
         XLSX.writeFile(wb, "leads-" + ({ AI: "AI", MT: "MT", SN: "SN", "-": "belum-ada-PIC", x: "PIC-konflik" })[S.cat] + ".xlsx");
       });
       // ---------- 6.4d Popup script WhatsApp (admin bisa ganti script semua PIC) ----------
